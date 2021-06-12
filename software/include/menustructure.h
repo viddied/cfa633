@@ -20,11 +20,15 @@ struct MENUENTRY {
 struct MENUENTRY *menu_head;
 struct MENUENTRY menu_main;
 struct MENUENTRY menu_network;
+struct MENUENTRY menu_network_int1;
+struct MENUENTRY menu_network_int2;
+struct MENUENTRY menu_network_int3;
 
-void show_menu_entry(struct MENUENTRY *entry);
-void move_entry(struct MENUENTRY *entryPtr);
-void submit();
-char* center(char *centered, char *text);
+void center(char *centered, char *text);
+int fill_ipv4(char *centered, struct MENUENTRY *nic);
 int menu_init();
+void move_entry(struct MENUENTRY *entryPtr);
+void show_menu_entry(struct MENUENTRY *entry);
+void submit();
 
 #endif
