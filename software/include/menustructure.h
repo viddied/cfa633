@@ -20,12 +20,18 @@ struct MENUENTRY {
 struct MENUENTRY *menu_head;
 struct MENUENTRY menu_main;
 struct MENUENTRY menu_network;
-struct MENUENTRY menu_network_int1;
-struct MENUENTRY menu_network_int2;
-struct MENUENTRY menu_network_int3;
+struct MENUENTRY menu_network_int1_name;
+struct MENUENTRY menu_network_int1_ipv4;
+struct MENUENTRY menu_network_int1_mac;
+struct MENUENTRY menu_network_int2_name;
+struct MENUENTRY menu_network_int2_ipv4;
+struct MENUENTRY menu_network_int2_mac;
+struct MENUENTRY menu_network_int3_name;
+struct MENUENTRY menu_network_int3_ipv4;
+struct MENUENTRY menu_network_int3_mac;
 
 void center(char *centered, char *text);
-int fill_ipv4(char *centered, struct MENUENTRY *nic);
+int fill_nic(char *centered, struct MENUENTRY *nic);
 int menu_init();
 void move_entry(struct MENUENTRY *entryPtr);
 void show_menu_entry(struct MENUENTRY *entry);
