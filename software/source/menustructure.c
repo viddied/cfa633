@@ -13,12 +13,14 @@
 
 int fill_nic(char *centered, struct MENUENTRY *nic) {
     // Obtain network interface information
-    int total_nics = 4;
+    struct MENUENTRY *nic_copy = nic;
     char *nic_name;
+    char mac[13] = "FFFFFFFFFFFF";
     struct ifaddrs *ifaddr, *ifaddr_copy;
     int family, namefailure, n;
     char ipv4[NI_MAXHOST];
     
+    // Fill structure with details of first network interface found
     if (getifaddrs(&ifaddr) == -1) {
         perror("getifaddrs");
         exit(EXIT_FAILURE);
@@ -33,7 +35,7 @@ int fill_nic(char *centered, struct MENUENTRY *nic) {
 
     // Walk through linked list, maintaining head pointer (released later)
     for (ifaddr_copy = ifaddr, n = 0; 
-        (ifaddr_copy != NULL) || (n < total_nics); 
+        (ifaddr_copy != NULL); 
         ifaddr_copy = ifaddr_copy->ifa_next, n++) {
 
         // Avoid loopback interface
@@ -42,38 +44,56 @@ int fill_nic(char *centered, struct MENUENTRY *nic) {
             continue;
         }
 
-        // Interface name menu entry
-        center(centered, "Interface:");
-        memcpy(nic->line1, centered, 16);
-        center(centered, nic_name);
-        memcpy(nic->line2, centered, 16);
-
-        // Get MAC address
-        // NOTE: We get MAC addresses first since AF_PACKET family
-        //       structures come before AF_INET it seems.
-        if (ifaddr_copy->ifa_data != 0) {
-            struct ifreq req;
-
-            strcpy(req.ifr_name, nic_name);
-
-            if (ioctl(sd, SIOCGIFHWADDR, &req) != -1) {
-                printf("[*] Name:\t%s\n", nic_name);
-            }
-        }
-
-        if (ifaddr_copy->ifa_addr == NULL) {
-            printf("[*] No IP address detected\n");
-            continue;
-        }
-
-        family = ifaddr_copy->ifa_addr->sa_family;
-
-        // Get IPv4 address
-        //  family:
+        // Family:
         //      2 = AF_INET
         //     10 = AF_INET6
         //     17 = AF_PACKET
-        if (family == AF_INET) {
+        family = ifaddr_copy->ifa_addr->sa_family;
+
+        // Get interface names and MAC addresses
+        // NOTE: We get MAC addresses first since AF_PACKET family
+        //       structures come before AF_INET it seems.
+        if (family == AF_PACKET) {
+            // Set name menu entry
+            center(centered, "Interface:");
+            memcpy(nic_copy->line1, centered, 16);
+            center(centered, nic_name);
+            memcpy(nic_copy->line2, centered, 16);
+            
+            // Set IPv4 line 1 (just the menu heading and initial value)
+            center(centered, "IP Address:");
+            memcpy(nic_copy->downPtr->line1, centered, 16);
+
+            // Set MAC menu entry
+            center(centered, "MAC Address:");
+            memcpy(nic_copy->downPtr->downPtr->line1, centered, 16);
+
+            if (ifaddr_copy->ifa_data != 0) {
+                struct ifreq req;
+
+                strcpy(req.ifr_name, nic_name);
+
+                if (ioctl(sd, SIOCGIFHWADDR, &req) != -1) {
+                    uint8_t *mac_byte = (uint8_t *)req.ifr_ifru.ifru_hwaddr.sa_data;
+                    snprintf(mac,
+                            13,
+                            "%02X%02X%02X%02X%02X%02X", 
+                            mac_byte[0], 
+                            mac_byte[1], 
+                            mac_byte[2], 
+                            mac_byte[3], 
+                            mac_byte[4], 
+                            mac_byte[5]);
+                }
+            }
+        
+            center(centered, mac);
+            memcpy(nic_copy->downPtr->downPtr->line2, centered, 16);
+
+            nic_copy = nic_copy->nextPtr;
+        }
+        // Get IPv4 addresses
+        else if (family == AF_INET) {
             namefailure = getnameinfo(ifaddr_copy->ifa_addr,
                                       sizeof(struct sockaddr_in),
                                       ipv4,
@@ -87,39 +107,24 @@ int fill_nic(char *centered, struct MENUENTRY *nic) {
                 exit(EXIT_FAILURE);
             }
             
-            // Interface IPv4 menu entry
-            center(centered, "IPv4 Address:");
-            memcpy(nic->downPtr->line1, centered, 16);
+            // Store the CENTERED name from the current structure
+            center(centered, ifaddr_copy->ifa_name);
+            nic_name = centered;
+
+            // Skip entry if names don't match (fill placeholder value)
+            while (strncmp(nic_name, nic->line2, 16) != 0) {
+                memcpy(nic->downPtr->line2, "    <unset>     ", 16);
+
+                nic = nic->nextPtr;
+            }
+            
             center(centered, ipv4);
             memcpy(nic->downPtr->line2, centered, 16);
 
-            // Interface MAC menu entry
-            center(centered, "MAC Address:");
-            memcpy(nic->downPtr->downPtr->line1, centered, 16);
-            center(centered, "0123456789AB");
-            memcpy(nic->downPtr->downPtr->line2, centered, 16);
-
-            printf("[*] Got IP Address\n");
-
             nic = nic->nextPtr;
         }
-        
-        if (family == AF_PACKET) {
-            /*/ Interface IPv4 menu entry
-            center(centered, "IPv4 Address:");
-            memcpy(nic->downPtr->line1, centered, 16);
-            center(centered, "< empty >");
-            memcpy(nic->downPtr->line2, centered, 16);
-
-            // Interface MAC menu entry
-            center(centered, "MAC Address:");
-            memcpy(nic->downPtr->downPtr->line1, centered, 16);
-            center(centered, "0123456789AB");
-            memcpy(nic->downPtr->downPtr->line2, centered, 16);
-            */
-            printf("[*] Got MAC Address\n");
-            
-            //nic = nic->nextPtr;
+        else {
+            //
         }
     }
 
@@ -310,7 +315,7 @@ int menu_init() {
     menu_network_int3_name.prevPtr = &menu_network_int2_name;
     menu_network_int3_name.nextPtr = NULL;
     menu_network_int3_name.upPtr = &menu_network;
-    menu_network_int3_name.downPtr = &menu_network_int2_ipv4;
+    menu_network_int3_name.downPtr = &menu_network_int3_ipv4;
 
     // Initialize interface 3 IPv4 menu
     menu_network_int3_ipv4.id = 231;
@@ -318,7 +323,7 @@ int menu_init() {
     menu_network_int3_ipv4.prevPtr = &menu_network_int2_ipv4;
     menu_network_int3_ipv4.nextPtr = NULL;
     menu_network_int3_ipv4.upPtr = &menu_network_int3_name;
-    menu_network_int3_ipv4.downPtr = &menu_network_int2_mac;
+    menu_network_int3_ipv4.downPtr = &menu_network_int3_mac;
    
     // Initialize interface 3 MAC menu
     menu_network_int3_mac.id = 232;
